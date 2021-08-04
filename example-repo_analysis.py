@@ -29,7 +29,7 @@ if len(sys.argv) ==2 :
         sys.exit(0) ##success
     if sys.argv[1] == "get_headers":
         ##headers used in csv printing
-        print(json.dumps(["flash_Debug", "ram_debug", "flash_Release", "ram_Release", "errors"]))
+        print(json.dumps(["flash_Debug", "ram_Debug", "flash_Release", "ram_Release", "errors"]))
         sys.exit(0) ##success
 
 ### Check script is named correctly to work:
