@@ -405,7 +405,7 @@ headers_json = subprocess.run(["python", analysis_script_path, "get_headers"], \
 #print("Config:\t", config_json)
 headers_list = json.loads(headers_json)
 
-header_line = "commit,date,message,analysis_version,analysis_str"
+header_line = "num,commit,date,message,analysis_version,analysis_str"
 for item in headers_list:
     header_line = header_line +',' +item
 out_csv_list.append(header_line + '\n')
@@ -415,18 +415,20 @@ out_csv_list.append(header_line + '\n')
 #     writer1= csv.DictWriter(outfile_csv, fieldnames= )
 
 
-
+linenum = 0
 for commit in commit_list:
+    linenum= linenum+1
     out_line = ""
+    out_line = out_line + str(linenum) + ","
     out_line = out_line + commit + ","
     out_line = out_line + commit_list[commit]['date'] + ","
     out_line = out_line + commit_list[commit]['message'] + ","
     if commit in analysis_data['commits']:
         out_line = out_line + str(analysis_data['commits'][commit].get("analysis_version","")) + ","
-        out_line = out_line + str(analysis_data['commits'][commit].get("analysis_str",""))
+        out_line = out_line + str(analysis_data['commits'][commit].get("analysis_str","")).replace(',',';')
         if "analysis" in analysis_data['commits'][commit]:
             for param in headers_list:
-                out_line = out_line +","+ str(analysis_data['commits'][commit]["analysis"].get(param,"")) 
+                out_line = out_line +","+ str(analysis_data['commits'][commit]["analysis"].get(param,"")).replace(',',';') 
 
     out_csv_list.append(out_line + '\n')
 
