@@ -1,5 +1,5 @@
 # offline-build-stats
-Script to iterate over every commit and record some analysis - e.g. compiled code size - in git notes and a local file.
+Script to iterate over every commit and record some analysis - e.g. compiled code size - in git notes and local files
 
 
 ### Operation
@@ -29,7 +29,10 @@ Configure ````[repo-name]_analysis.py```` to provide the standard output (e.g. c
 ### Usage
 Once set up, run ````per-commit-analysis.py [repo-directory]````, or place the file in the repo directory and run.
 It is interactive only in case of error.
-
+Output files will appear in the same directory as the ````[repo-name]_analysis.py```` script
+- .json file for quick comparisons
+- .csv file for output only.
+- some raw.txt log files to aid parsing
 
 ### Dependencies
 No deliberate ones. Developed with Python 3.8.3 on Windows, but should work with minor changes on most platforms.
