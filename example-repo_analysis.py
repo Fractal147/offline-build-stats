@@ -22,10 +22,14 @@ import json #for dumping output
 working_directory = Path(os.getcwd())
 script_dir = Path(sys.argv[0]).parent
 
-##ignore args unless it's "get_config"
+##ignore args unless it's "get_config" or "get_headers"
 if len(sys.argv) ==2 :
     if sys.argv[1] == "get_config":
         print(json.dumps(config_dict))
+        sys.exit(0) ##success
+    if sys.argv[1] == "get_headers":
+        ##headers used in csv printing
+        print(json.dumps(["flash_Debug", "ram_debug", "flash_Release", "ram_Release", "errors"]))
         sys.exit(0) ##success
 
 ### Check script is named correctly to work:

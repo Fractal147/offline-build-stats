@@ -391,4 +391,46 @@ if config_dict['use_local_datafile']:
 
 print("Restoring HEAD location", flush=True)
 subprocess.run(["git", "checkout", location_at_start], cwd=target_repo_directory)
+
+
+#Pretty printing to .csv file
+print("Pretty printing to .CSV file", flush=True)
+outfile_csv_path = working_directory.joinpath(repo_name + "_analysis_output.csv")
+out_csv_list = []
+
+## Get headers from analysis file:
+headers_json = subprocess.run(["python", analysis_script_path, "get_headers"], \
+    text=True, capture_output=True, check=True).stdout.strip('\r\n')
+
+#print("Config:\t", config_json)
+headers_list = json.loads(headers_json)
+
+header_line = "commit,date,message,analysis_version,analysis_str"
+for item in headers_list:
+    header_line = header_line +',' +item
+out_csv_list.append(header_line + '\n')
+
+# import csv
+# with open(outfile_csv_path, 'tw') as outfile_csv:
+#     writer1= csv.DictWriter(outfile_csv, fieldnames= )
+
+
+
+for commit in commit_list:
+    out_line = ""
+    out_line = out_line + commit + ","
+    out_line = out_line + commit_list[commit]['date'] + ","
+    out_line = out_line + commit_list[commit]['message'] + ","
+    if commit in analysis_data['commits']:
+        out_line = out_line + str(analysis_data['commits'][commit].get("analysis_version","")) + ","
+        out_line = out_line + str(analysis_data['commits'][commit].get("analysis_str",""))
+        if "analysis" in analysis_data['commits'][commit]:
+            for param in headers_list:
+                out_line = out_line +","+ str(analysis_data['commits'][commit]["analysis"].get(param,"")) 
+
+    out_csv_list.append(out_line + '\n')
+
+with open(outfile_csv_path, 'tw') as outfile_csv:
+    outfile_csv.writelines(out_csv_list)
+
 exit()
