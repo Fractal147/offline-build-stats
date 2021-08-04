@@ -17,9 +17,9 @@ When complete, or killed (CTRL-C) it will restore the repository to it's startin
 
 
 ### Setup
-Configure ````[repo-name]_analysis.py```` to provide the standard output (e.g. compiled flash memory usage) wanted. Place either in target repository, or in same directory as this script.
+Configure ````[repo-name]_analysis.py```` to provide the standard output (e.g. compiled flash memory usage) wanted. 
+- Place either in target location, or in same directory as this script. This affects where the output file is stored too.
 Configure ````per-commit-analysis.py```` to point at the appropriate notes directory (e.g. so it doesn't overwrite notes made in refs/notes/commits)
-
 
 ### Usage
 Once set up, run ````per-commit-analysis.py [repo-directory]````, or place the file in the repo directory and run.
