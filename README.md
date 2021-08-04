@@ -6,7 +6,7 @@ Script to iterate over every commit and record some analysis - e.g. compiled cod
 The main script will run ````git log```` in the targeted repository, and working from newest to oldest commit, by hash:
 - Check ````[repo-name]_analysis.json```` for an existing entry for ````[hash]````
 - - If present, skip to next commit
-- - If not present (or invalid?), proceed:
+- - If not present, proceed:
 - Run ````git checkout [hash]````
 - Run ````[repo-name]_analysis.py````, and record the standard output
 - - Store the output in the local file ````[repo-name]_analysis.json```` for the ````[hash]````
@@ -32,5 +32,6 @@ No deliberate ones. Developed with Python 3.8.3 on Windows, but should work with
 
 ### Future plans
 - Have it optionally read git notes only - no local database
-- Have it do some form of versioning
+- Have it do some form of versioning/validation of stored data
 - Have a more convenient output for graphing
+- Have the ````_analysis.py```` file contain the notes parameters, and import
