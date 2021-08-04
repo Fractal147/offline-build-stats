@@ -4,9 +4,9 @@ Script to iterate over every commit and record some analysis - e.g. compiled cod
 
 ### Operation
 The main script will run ````git log```` in the targeted repository, and working from newest to oldest commit, by hash:
-- Check ````[repo-name]_analysis.json```` for an existing entry for ````[hash]````
-- - If present, skip to next commit
-- - If not present, proceed:
+- Check ````[repo-name]_analysis.json```` for an existing entry for ````[hash]```` at current version or higher
+- Check ````git notes```` for an existing entry for ````[hash]```` at current version or higher
+- If only one source has the info, copy it to the other one and jump to next commit, else:
 - Run ````git checkout [hash]````
 - Run ````[repo-name]_analysis.py````, and record the standard output
 - - Store the output in the local file ````[repo-name]_analysis.json```` for the ````[hash]````
@@ -15,11 +15,16 @@ The main script will run ````git log```` in the targeted repository, and working
 
 When complete, or killed (CTRL-C) it will restore the repository to it's starting state.
 
+If it crashes, it won't...
+
 
 ### Setup
 Configure ````[repo-name]_analysis.py```` to provide the standard output (e.g. compiled flash memory usage) wanted. 
-- Place either in target location, or in same directory as this script. This affects where the output file is stored too.
-Configure ````per-commit-analysis.py```` to point at the appropriate notes directory (e.g. so it doesn't overwrite notes made in refs/notes/commits)
+- If it's json, this will be interpreted and stored as such.
+- Also configure location of git notes to write to (e.g. so it doesn't overwrite notes made in refs/notes/commits)
+- Adjust version - higher version numbers will overwrite older ones in git notes and in data store.
+- Place either in target location (e.g. in target repository), or in same directory as this script. This affects where the output file is stored too.
+
 
 ### Usage
 Once set up, run ````per-commit-analysis.py [repo-directory]````, or place the file in the repo directory and run.
@@ -29,9 +34,10 @@ It is interactive only in case of error.
 ### Dependencies
 No deliberate ones. Developed with Python 3.8.3 on Windows, but should work with minor changes on most platforms.
 
+### Options
+- Can make it only use git notes, or only use a local file
+
 
 ### Future plans
-- Have it optionally read git notes only - no local database
-- Have it do some form of versioning/validation of stored data
 - Have a more convenient output for graphing
-- Have the ````_analysis.py```` file contain the notes parameters, and import
+- Use proper python module for analysis

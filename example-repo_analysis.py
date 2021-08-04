@@ -2,18 +2,31 @@
 #Returns over standard output some analysis string.
 #e.g. here a .json object
 
-#CONFIGURE THE PATHS TO POINT TO THE APPROPRIATE THINGS FOR YOUR ANALYSIS
+#CONFIGURE THE PATHS TO POINT TO THE APPROPRIATE THINGS FOR YOUR ANALYSIS BELOW:
+config_dict = {
+    "analysis_version" : 1, ### Higher numbers overwrite older analysis. 
 
-
+    "git_notes_path":"refs/notes/analysis", #default is "refs/notes/commits" for a default repository.
+        #if left blank ("") it will just use the git repository default.
+    "use_git_notes": True, ##If false it ignore git notes reading and writing
+    "use_local_datafile" : True, ## If false, it'll just skip all the stuff to do with saving/loading local files.
+    "force_recompute_all_versions" : False ##If true, it will overwrite all past analyis (forcing  slow recompute), regardless of the version being higher
+}
 ### Imports
 import os ##for current working directory
 import sys #for getting args
 import subprocess ##for running the build tools and analysis
 from pathlib import Path ##for nice crossplatform paths
+import json #for dumping output
 
 working_directory = Path(os.getcwd())
 script_dir = Path(sys.argv[0]).parent
 
+##ignore args unless it's "get_config"
+if len(sys.argv) ==2 :
+    if sys.argv[1] == "get_config":
+        print(json.dumps(config_dict))
+        sys.exit(0) ##success
 
 ### Check script is named correctly to work:
 scriptname = Path(sys.argv[0]).name
@@ -57,16 +70,16 @@ repo_dir = repo_tld
 
 
 #Predelete compiled files (A clean build would be acceptable too instead)
-path_to_Debug_elf = repo_dir.joinpath(Path(r"microdriver-dev\microdriver-dev-start\Debug\microdriver-dev-start.elf"))
+path_to_Debug_elf = repo_dir.joinpath(Path(r"\Debug\microdriver-dev-start.elf"))
 path_to_Debug_elf.unlink(missing_ok=True) ##actually delete
 
-path_to_Release_elf = repo_dir.joinpath(Path(r"microdriver-dev\microdriver-dev-start\Release\microdriver-dev-start.elf"))
+path_to_Release_elf = repo_dir.joinpath(Path(r"\Release\microdriver-dev-start.elf"))
 path_to_Release_elf.unlink(missing_ok=True) ##actually delete
 
 
 ##Build this commit
 path_to_atmel_studio = Path(r"C:\Program Files (x86)\Atmel\Studio\7.0\AtmelStudio.exe")
-path_to_atlsn = repo_dir.joinpath(Path(r"microdriver-dev\microdriver-dev.atsln")) 
+path_to_atlsn = repo_dir.joinpath(Path(r"example.atsln")) 
 
 try:
     subprocess.run([ path_to_atmel_studio, path_to_atlsn, r"/build",  "Debug" ] ,timeout=30, check=True) ##timeout in seconds
@@ -124,11 +137,11 @@ except subprocess.TimeoutExpired:
 
 ##Format size form avr-size
 #   text    data     bss     dec     hex filename
-#   8083      27      65    8175    1fef c:\Users\name\Documents\Git working copies\MicroDriver-Prototype2\microdriver-dev\microdriver-dev-start\Debug\microdriver-dev-start.elf
+#   8083      27      65    8175    1fef c:\Users\name\Documents\Git working copies\example-repo\Debug\microdriver-dev-start.elf
 
 ## or using avr-objdump:
 # 0
-# 1 c:\Users\name\Documents\Git working copies\MicroDriver-Prototype2\microdriver-dev\microdriver-dev-start\Debug\microdriver-dev-start.elf:     file format elf32-avr
+# 1 c:\Users\name\Documents\Git working copies\example-repo\Debug\microdriver-dev-start.elf:     file format elf32-avr
 # 2 AVR Memory Usage
 # 3 ----------------
 # 4 Device: attiny816
@@ -145,10 +158,9 @@ except subprocess.TimeoutExpired:
 if len(errorslist) > 0:
     dataout['errors'] = errorslist
 
+##dataout['analysis_version'] = config_dict["analysis_version"]
 
 #Oass on as standard output
-
-import json
 outstring =json.dumps(dataout) 
 print(outstring)
 

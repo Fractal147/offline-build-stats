@@ -1,12 +1,12 @@
 #####CONFIGURATION#####
-git_notes_path = "refs/notes/analysis1" #default is "refs/notes/commits" for a default repository.
+#all now in _analysis.py script
 
 
 
 import sys #for getting args
 from pathlib import Path #For doing nice crossplatform paths
 import subprocess ##for running more command line stuff
-
+import json #for config and analysis store
 
 ##### Working out what the target repository is and working directory for this script
 script_calling_directory =Path(Path(sys.argv[0]).parent.resolve())
@@ -60,11 +60,38 @@ working_directory = analysis_script_path.absolute().parent
 
 print("Using analysis file " + analysis_script_path.as_posix())
 
-### Now seek out the database file, try to load it, and otherwise setup
-import json
+
+
+## Get configuration from analysis file:
+config_json = subprocess.run(["python", analysis_script_path, "get_config"], \
+    text=True, capture_output=True, check=True).stdout.strip('\r\n')
+
+print("Config:\t", config_json)
+config_dict = json.loads(config_json)
+
+####validate config
+expected_keys = [
+    "analysis_version" ,
+    "git_notes_path",
+    "use_git_notes",
+    "use_local_datafile",
+    "force_recompute_all_versions"
+]
+for key in expected_keys:
+    try:
+        assert key in config_dict
+    except AssertionError: 
+        sys.exit("Error - config in _analysis.py missing parameter, " + key)
+        
+        
+
+
+
+
+### Now seek out the database file, try to load it, and otherwise setup a blank one
 outfile_json_path = working_directory.joinpath(repo_name + "_analysis_output.json")
 
-if outfile_json_path.exists():
+if config_dict['use_local_datafile'] and outfile_json_path.exists():
     try:
         with open(outfile_json_path) as db_file:
             analysis_data= json.load(db_file)
@@ -79,7 +106,9 @@ else:
     
 if not 'commits' in analysis_data:
     analysis_data['commits'] = dict()
-    
+
+if config_dict['use_local_datafile']:
+    print("Using local data file file " + outfile_json_path.as_posix())
 
 
 
@@ -108,8 +137,10 @@ import sys
 def signal_handler(sig, frame):
     print('Aborting!', flush=True)
     ##write out the database
-    with open(outfile_json_path , 'w') as outfile:
-        json.dump(analysis_data, outfile, indent=2)
+    if config_dict['use_local_datafile']:
+        with open(outfile_json_path , 'w') as outfile:
+            print("Writing out to file", flush=True)
+            json.dump(analysis_data, outfile, indent=2)
     
     print("Restoring HEAD location", flush=True)
     subprocess.run(["git", "checkout", location_at_start], cwd=target_repo_directory)
@@ -124,85 +155,147 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 ##Get a list of all commits, formatted as JSON
+#Output to file since it may be huge (and buffer for subprocess is not)
 raw_git_log_path = working_directory.joinpath(repo_name+ "_raw_git_log.txt")
 subprocess.run([ "git",  "log", "--output="+str(raw_git_log_path), \
     #'''--pretty=format:%n  "%H":{%n  "author": "%aN <%aE>",%n  "date": "%ad",%n  "message": "%f",%n  "notes": "%N"%n},''' \ ##unused since notes now separate
     '''--pretty=format:%n  "%H":{%n  "author": "%aN <%aE>",%n  "date": "%ad",%n  "message": "%f"%n},''' \
     ] ,capture_output=True, text=True, \
-    timeout=5, check=False, cwd=target_repo_directory ) ##timeout in seconds
+    timeout=5, check=True, cwd=target_repo_directory ) ##timeout in seconds
 
 
 with open(raw_git_log_path, 'tr') as raw_git_log:
     ##raw_git_log_mmap = mmap.mmap(raw_git_log.fileno(), 0)
     ##re.sub("commit","", raw_git_log_mmap)
-   
+
     raw_git_log_list_of_lines =raw_git_log.readlines()
 
-##Make it more valid JSON
+##Make it more valid JSON:
 raw_git_log_list_of_lines.insert(0,'{"commitlist":{\n')
 raw_git_log_list_of_lines[-1] = '}}}'
 
 with open(raw_git_log_path, 'tw') as raw_git_log:
     raw_git_log.writelines(raw_git_log_list_of_lines)
 
-####Old methods for fixing file when it had notes in...
-# ##Time efficient, space poor:
-# raw_git_log_list_of_lines_fixed = list()
-# raw_git_log_list_of_lines_fixed.append('{"commitlist":{\n')
-# # for line in raw_git_log_list_of_lines:
-# #     if re.match('^"$', line):
-# #         #skip this line, and fix the previous
-# #         raw_git_log_list_of_lines_fixed[-1] = raw_git_log_list_of_lines_fixed[-1][:-1] +'"' +raw_git_log_list_of_lines_fixed[-1][-1]
-# #     else:
-# #         raw_git_log_list_of_lines_fixed.append(line)
-# #         ##add this line to the list
-# ##fix the last line
-# raw_git_log_list_of_lines_fixed[-1] = '}}}'
-# with open(raw_git_log_path, 'tw') as raw_git_log:
-#     raw_git_log.writelines(raw_git_log_list_of_lines_fixed)
-
-    
-
 ##parse the git log
 with open(raw_git_log_path) as raw_git_log:
         commit_list= json.load(raw_git_log)['commitlist']
 
-##removed since it was never going to work
-##if the notes look like json...?
-# for commit in commit_list:
-#     if not commit_list[commit].get('notes',"") == "":
-#         try:
-#             analysis = json.loads(commit_list[commit]['notes'])
-#             commit_list[commit]['analysis'] = analysis
-#         except json.decoder.JSONDecodeError:
-#             print("Fail decode\t" + commit_list[commit]['notes'])
-#             pass
 
 
 
+#Overal plan is then :
+#Read the database for valid/not-> valid_results, mark.
+#read git log for valid/not-> valid_results, mark
+#Don't worry about mismatches at this stage.
+
+#if neither valid, run script-> valid_results
+
+#if database invalid, overwrite.
+#if log invalid, overwrite.
+
+#can skip local file stuff.
+
+##Using the git log as the master copy, so it goes in order from new to old:
 
 
-#print(plain_git_log)
-#for commit_a in commit_list:
-    #print(commit_list[commit_a].get("author"))
-    
+#Prepare dicts for holding notes (blank is fine if unused)
+analysis_from_notes = dict()
+analysis_from_notes['commits'] = dict()
 
-
-##Using the git log as the master copy...
-limiter =0
-for commit in commit_list:
-    
-    if commit in analysis_data['commits']:
-        #data already present
-        print(commit+"\tData present:\t"+str(analysis_data['commits'][commit]), flush=True)
-        
-        pass
+#get list of notes in a simiar manner to the plain git log
+#Output to file since it may be huge (and buffer for subprocess is not)
+##note that may contain various nasties, so delimit with care.
+if config_dict["use_git_notes"]:
+    #Get a list of all commits, in a file, separated
+    raw_git_notes_path = working_directory.joinpath(repo_name+ "_raw_git_notes.txt")
+    if config_dict['git_notes_path'] == "":
+        get_notes_command = ["git", "log", "--output="+str(raw_git_notes_path), \
+            "--notes", '''--format=%H{NOTE_DELIM}%N{END_OF_NOTE}''']
     else:
-        #todo: check git notes for data:
-        #potentially ask if it should overwrite?
+        get_notes_command = ["git", "log", "--output="+str(raw_git_notes_path),\
+            "--notes="+config_dict['git_notes_path'],'''--format=%H{NOTE_DELIM}%N{END_OF_NOTE}''' ]
 
-        ##generate the test data
-        print(commit+"\tTesting.", end='', flush=True)
+    subprocess.run( get_notes_command ,capture_output=True, text=True, \
+        timeout=5, check=True, cwd=target_repo_directory ) ##timeout in seconds
+
+    #In file delete all newlines, except for {END_OF_NOTE}
+    with open(raw_git_notes_path, 'tr') as raw_git_notes:
+        git_notes_all = raw_git_notes.read()
+        git_notes_all = git_notes_all.replace('\n', '')
+        git_notes_all = git_notes_all.replace('\r', '')
+        git_notes_all = git_notes_all.replace('{END_OF_NOTE}', '{NOTE_DELIM}\n')
+    
+    with open(raw_git_notes_path, 'tw') as raw_git_notes:
+        raw_git_notes.write(git_notes_all)
+
+    
+    #Read file line by line, split by the delimiter
+    #If there is a string,  and add to appropriate database 
+    with open(raw_git_notes_path, 'tr') as  clean_git_notes:
+        for line in clean_git_notes:
+            ##each line one note.
+            linesplit= line.split("{NOTE_DELIM}")
+
+            if len(linesplit) != 3:
+                continue ##skip if it's somehow got more delimiters
+            if len(linesplit[1]) < 1:
+                continue ##skip if it has no text
+            #print(linesplit)
+            #Try and load it as a JSON string, otherwise add as analysis_str
+
+            try:
+                analysis_from_notes['commits'][linesplit[0]] = json.loads(linesplit[1])
+                
+            except json.decoder.JSONDecodeError:
+                analysis_from_notes['commits'][linesplit[0]] = {'analysis_str':linesplit[1]}
+                
+
+
+
+##For commits
+
+limiter = 0
+for commit in commit_list:
+    limiter = limiter +1
+    if limiter > 3:
+        #break ##debug thing to enable writing it to not go mad
+        pass
+
+    #setup validity flags:
+    db_analysis_valid = False
+    notes_analysis_valid = False
+    print_a_line = False
+    valid_data = dict()
+
+    #check local datafile for valid data by checking version (if unused, analysis_data is blank)
+    if commit in analysis_data['commits']:
+        #print("Found", flush=True, end='\t')
+        if analysis_data['commits'][commit].get('analysis_version', -1) >= config_dict['analysis_version']:
+            db_analysis_valid = True
+            valid_data = analysis_data['commits'][commit]
+            valid_data.pop('message',"Don't need messages in the git notes")
+
+    #check notes list for valid data by checking version  (if unused, analysis_from_notes is blank)
+    if commit in analysis_from_notes['commits']:
+        if analysis_from_notes['commits'][commit].get('analysis_version', -1) >= config_dict['analysis_version']:
+            notes_analysis_valid = True
+            valid_data = analysis_from_notes['commits'][commit]
+    
+
+    if config_dict.get("force_recompute_all_versions", False) or \
+        (not (db_analysis_valid) and config_dict['use_local_datafile'] )or \
+        (not (notes_analysis_valid) and config_dict['use_git_notes']):
+        print_a_line = True
+        print(commit, end=' ', flush=True)
+
+    
+    #Recompute if neither valid, or recompute is set
+    if config_dict.get("force_recompute_all_versions", False) or \
+        ( not (db_analysis_valid or notes_analysis_valid)):
+
+        ##generate the analysis data
+        print("Testing.", end='', flush=True)
         subprocess.run(["git", "checkout", commit], cwd=target_repo_directory, capture_output=True)
         print(".", end='', flush=True)
         analysis_str = subprocess.run(["python", analysis_script_path], \
@@ -210,31 +303,46 @@ for commit in commit_list:
         print(".\t", end='', flush=True)
         analysis_str=analysis_str.strip('\n\r')
 
-        #if analysis is valid json, treat it as such in the data store
+        #if analysis_str is valid json, treat it as such in the data store
         try:
-            analysis_commit_dict =dict()
-            analysis_commit_dict = json.loads(analysis_str)
-            analysis_good_json = True
-            pass
+            analysis_dict_onecommit = json.loads(analysis_str)
+            valid_data['analysis'] = analysis_dict_onecommit
         except json.decoder.JSONDecodeError:
-            analysis_good_json = False
-            pass
+            valid_data['analysis_str'] = analysis_str
+        
+        valid_data['analysis_version'] = config_dict['analysis_version']
 
-        print(analysis_str, flush=True)
-        ##add to dict.
-        analysis_data['commits'][commit] = dict()
+        print(json.dumps(valid_data), flush=True, end='\t')
+        
+
+    valid_data_string =json.dumps(valid_data) 
+
+    ## update local data store (only written out if enabled)
+    if config_dict["use_local_datafile"] and \
+        (config_dict.get("force_recompute_all_versions", False) or not (db_analysis_valid)):
+        print("Updating dict", flush=True, end='\t')
+        analysis_data['commits'][commit] = valid_data
         analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
-        if analysis_good_json:
-            analysis_data['commits'][commit]['analysis'] = analysis_commit_dict
-        else:
-            ##write it like text
-            analysis_data['commits'][commit] = dict()
-            analysis_data['commits'][commit]['analysis_str'] = analysis_str
-        
+        #print("Updated", flush=True, end='\t')
 
-        #write to git database as string
-        subprocess.run(["git", "notes", "--ref", git_notes_path, "add", "-f","-m", analysis_str], check=True, cwd=target_repo_directory, capture_output=False)
+
+    ## update git notes if needed
+    if config_dict["use_git_notes"] and \
+        (config_dict.get("force_recompute_all_versions", False) or not (notes_analysis_valid)):
         
+        print("Updating git notes", flush=True, end='\t')
+        if config_dict['git_notes_path'] == "":
+            notes_add_command = ["git", "notes", "add", "-f","-m", valid_data_string, commit]
+        else:
+            notes_add_command = ["git", "notes", "--ref="+config_dict['git_notes_path'], "add", "-f","-m", valid_data_string, commit]
+        #write to git database as string
+        subprocess.run(notes_add_command, \
+            check=True, cwd=target_repo_directory, capture_output=True)
+
+    if print_a_line:
+        print("", flush=True) ##use for a newline
+
+    ##complete, next commit
         
 
 
@@ -273,9 +381,13 @@ for commit in commit_list:
 
 
 #end
+print("Completed, up to date")
 ##see more here https://stackoverflow.com/questions/12309269/how-do-i-write-json-data-to-a-file
-with open(outfile_json_path , 'w') as outfile:
-    json.dump(analysis_data, outfile, indent=2)
+if config_dict['use_local_datafile']:
+    with open(outfile_json_path , 'w') as outfile:
+        print("Writing out to file", flush=True)
+        json.dump(analysis_data, outfile, indent=2)
+        
 
 print("Restoring HEAD location", flush=True)
 subprocess.run(["git", "checkout", location_at_start], cwd=target_repo_directory)
