@@ -45,3 +45,5 @@ No deliberate ones. Developed with Python 3.8.3 on Windows, but should work with
 - Have a more convenient output for graphing
 - Use proper python module for analysis
 - get git tag names with --decorate and add to output file
+- For atmel studio, iterate through the build versions, and don't build missing ones.
+- Dynamically do headers based on TLD of analysis dict (most inclusive)

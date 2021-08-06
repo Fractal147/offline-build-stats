@@ -1,5 +1,5 @@
 #####CONFIGURATION#####
-#all now in _analysis.py script
+#all now in _analysis.py script - so each repo can be distinct
 
 
 
@@ -315,14 +315,17 @@ for commit in commit_list:
         print(json.dumps(valid_data), flush=True, end='\t')
         
 
-    valid_data_string =json.dumps(valid_data) 
+    valid_data_string =json.dumps(valid_data)
+    ###Add on commit messages as needed.
+    if not 'message' in analysis_data['commits'][commit]:
+        analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
 
     ## update local data store (only written out if enabled)
     if config_dict["use_local_datafile"] and \
         (config_dict.get("force_recompute_all_versions", False) or not (db_analysis_valid)):
         print("Updating dict", flush=True, end='\t')
         analysis_data['commits'][commit] = valid_data
-        analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
+        ##analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
         #print("Updated", flush=True, end='\t')
 
 
