@@ -316,15 +316,16 @@ for commit in commit_list:
         
 
     valid_data_string =json.dumps(valid_data)
-    ###Add on commit messages as needed.
-    if not 'message' in analysis_data['commits'][commit]:
-        analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
 
-    ## update local data store (only written out if enabled)
+    ###Ensure local data store is up to date:
+    analysis_data['commits'][commit] = valid_data
+    analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
+
+    ## update local data store (as only written out if enabled, this is placebo)
     if config_dict["use_local_datafile"] and \
         (config_dict.get("force_recompute_all_versions", False) or not (db_analysis_valid)):
         print("Updating dict", flush=True, end='\t')
-        analysis_data['commits'][commit] = valid_data
+        #analysis_data['commits'][commit] = valid_data
         ##analysis_data['commits'][commit]['message'] = commit_list[commit]['message']
         #print("Updated", flush=True, end='\t')
 
